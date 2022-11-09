@@ -89,11 +89,11 @@ class SlidingTransformer(SlidingAttention):
         x = self.linear_module(x)
         x = nn.functional.relu(x)
 
-        cum_att = x[0]
+        cum_res = x[0]
         for i in range(1, x.size(0)):
-            cum_att = self.accum_module(x[i], cum_att)
+            cum_res = self.accum_module(x[i], cum_res)
 
-        return cum_att
+        return cum_res
 
 
 class PollutionPredictor(nn.Module):
@@ -109,14 +109,3 @@ class PollutionPredictor(nn.Module):
         x = self.out(x)
         x = x.reshape(-1, 1)
         return x
-
-
-def test_transformer_module():
-    x = torch.rand(7 * 24, 10)
-    sliding_transformer = SlidingTransformer(d_model=10, kernel=24, stride=1, out_dim=8, num_heads=2, dropout=0.2)
-    model = PollutionPredictor(base_model=sliding_transformer, out_dim=8)
-    model(x)
-
-
-if __name__ == '__main__':
-    test_transformer_module()
