@@ -14,7 +14,7 @@ def train(model, x_train, y_train, epochs: int, clip_value: float = None):
     optimizer = optim.Adam(model.parameters(), lr=0.01)
     criterion = nn.MSELoss()
 
-    n = x_train.size(0)
+    n = x_train.size(0) // 2
     progress_bar = tqdm(range(epochs))
 
     for epoch in progress_bar:

@@ -26,7 +26,7 @@ class PollutionConfig:
         self.model_params = {
             'd_model': len(self.in_features),
             'kernel': kernel,
-            'stride': kernel,
+            'stride': kernel - 1,
             'out_dim': 8,
             'num_heads': 2,
             'dropout': 0.2,
@@ -57,7 +57,7 @@ class PollutionConfig:
 
 
 class StockConfig:
-    def __init__(self, lookback_window=7 * 24, horizon=4, model_params=None, device=torch.device('cpu')):
+    def __init__(self, lookback_window=28, horizon=1, model_params=None, device=torch.device('cpu')):
         self.device = device
 
         self.in_features = [
@@ -68,11 +68,11 @@ class StockConfig:
         self.lookback_window = lookback_window
         self.horizon = horizon
 
-        kernel = 24
+        kernel = 7
         self.model_params = {
             'd_model': len(self.in_features),
             'kernel': kernel,
-            'stride': kernel,
+            'stride': kernel - 1,
             'out_dim': 8,
             'num_heads': 2,
             'dropout': 0.2,
