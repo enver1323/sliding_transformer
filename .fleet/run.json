@@ -1,0 +1,14 @@
+{
+    "configurations": [
+        {
+            "type": "python",
+            "name": "train",
+            "arguments": ["train.py"],
+        },
+        {
+            "type": "python",
+            "name": "model",
+            "arguments": ["model.py"],
+        }
+    ]
+}
