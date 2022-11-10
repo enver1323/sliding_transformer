@@ -5,11 +5,13 @@ from sklearn.preprocessing import MinMaxScaler
 
 
 def compute_path_increments(inputs) -> torch.Tensor:
-    path_increments = torch.empty((inputs.size(-2) - 1, inputs.size(-1)), dtype=inputs.dtype, device=inputs.device)
-
-    for i in range(path_increments.size(-2)):
-        path_increments[i] = inputs[i + 1] - inputs[i]
-
+    # path_increments = torch.empty((inputs.size(-2) - 1, inputs.size(-1)), dtype=inputs.dtype, device=inputs.device)#
+    #
+    # for i in range(path_increments.size(-2)):
+    #     path_increments[i] = inputs[i + 1] - inputs[i]
+    #
+    path_increments = inputs[:, 1:, :] - inputs[:, :-1, :]
+    
     return path_increments
 
 
@@ -44,8 +46,8 @@ def df_to_dataset(input_df, x_params, y_params, lookback, horizon):
     x_df = input_df[x_params].to_numpy()
     y_df = input_df[y_params].to_numpy()
 
-    for i in range(len(x_df) - lookback - horizon):
+    for i in range(len(x_df) - lookback - horizon + 1):
         x.append([datum for datum in x_df[i:i + lookback]])
-        y.append(y_df[i + lookback - 1: i + lookback + horizon])
+        y.append(y_df[i + lookback - 1: i + lookback + horizon - 1])
 
     return np.array(x), np.array(y)

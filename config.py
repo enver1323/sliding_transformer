@@ -91,24 +91,33 @@ class PollutionConfig(Config):
 
 
 class StockConfig(Config):
-    def __init__(self, lookback_window=28, horizon=1, device=torch.device('cpu')):
+    def __init__(self, lookback_window=64, horizon=2, device=torch.device('cpu')):
+        in_features = ['Open', 'High', 'Low', 'Close'],
+        kernel = 32,
         super().__init__(
-            in_features=[
-                'Open', 'High', 'Low', 'Close'
-            ],
+            in_features=in_features,
             out_features=['Close'],
-            kernel=7,
+            kernel=kernel,
+            model_params={
+                'd_model': len(self.in_features),
+                'kernel': kernel,
+                'stride': 1,
+                'out_dim': 1,
+                'num_heads': 4,
+                'dropout': 0.2,
+                **({})
+            },
             lookback_window=lookback_window,
             horizon=horizon,
             device=device,
         )
 
-    def preprocess_dataset(self, path):
+    def preprocess_dataset(self, path, date_format='%Y.%m.%d %H:%M:%S'):
         print("Data import ...")
         input_df = pd.read_csv(path)
 
         print("Data preprocessing ...")
-        encode_date_df(input_df, 'Date')
+        encode_date_df(input_df, 'Date', date_format='%Y.%m.%d %H:%M:%S')
 
         return self.split_dataset(input_df)
 
