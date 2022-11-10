@@ -57,7 +57,7 @@ class PollutionConfig:
 
 
 class StockConfig:
-    def __init__(self, lookback_window=28, horizon=1, model_params=None, device=torch.device('cpu')):
+    def __init__(self, lookback_window=64, horizon=2, model_params=None, device=torch.device('cpu')):
         self.device = device
 
         self.in_features = [
@@ -68,23 +68,23 @@ class StockConfig:
         self.lookback_window = lookback_window
         self.horizon = horizon
 
-        kernel = 7
+        kernel = 32
         self.model_params = {
             'd_model': len(self.in_features),
             'kernel': kernel,
-            'stride': kernel - 1,
-            'out_dim': 8,
-            'num_heads': 2,
+            'stride': 1,
+            'out_dim': 1,
+            'num_heads': 4,
             'dropout': 0.2,
             **(model_params or {})
         }
 
-    def preprocess_dataset(self, path):
+    def preprocess_dataset(self, path, date_format='%Y.%m.%d %H:%M:%S'):
         print("Data import ...")
         input_df = pd.read_csv(path)
 
         print("Data preprocessing ...")
-        encode_date_df(input_df, 'Date')
+        encode_date_df(input_df, 'Date', date_format)
 
         x_train, y_train = df_to_dataset(
             input_df,

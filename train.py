@@ -1,31 +1,42 @@
 import torch
-from random import randint
 from torch import optim, nn
 from tqdm import tqdm
 
-from config import PollutionConfig, StockConfig
-from model import SlidingTransformer, PollutionPredictor
+from config import StockConfig
+from model import SlidingTransformer, SlidingAttention
 from utils import compute_path_increments
 
 DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 
-def train(model, x_train, y_train, epochs: int, clip_value: float = None):
+def train(
+    model,
+    x_train,
+    y_train,
+    epochs: int,
+    batch_size=64,
+    num_steps=20000,
+    clip_value: float = None,
+    compute_increments: bool = False
+):
     optimizer = optim.Adam(model.parameters(), lr=0.01)
     criterion = nn.MSELoss()
 
-    n = x_train.size(0) // 2
     progress_bar = tqdm(range(epochs))
+
+    if compute_increments:
+        x_train = compute_path_increments(x_train)
+        y_train = compute_path_increments(y_train)
 
     for epoch in progress_bar:
         total_loss = 0
-        for step in range(n):
+        for step in range(num_steps):
             optimizer.zero_grad()
 
-            idx = randint(0, n - 1)
+            indices = torch.randint(len(x_train), (batch_size,))
 
-            x = compute_path_increments(x_train[idx])
-            y = compute_path_increments(y_train[idx])
+            x = x_train[indices]
+            y = y_train[indices]
 
             logits = model(x)
             loss = criterion(logits, y)
@@ -42,23 +53,74 @@ def train(model, x_train, y_train, epochs: int, clip_value: float = None):
             progress_bar.set_description_str(
                 f"[Epoch {epoch} | Step {step + 1}] Loss: {loss.item():.2f}, Cum loss: {(total_loss / (step + 1)):.2f}")
 
-        print(f"[Epoch {epoch}] Cum loss: {(total_loss / n):.2f}")
+        print(f"[Epoch {epoch}] Cum loss: {(total_loss / num_steps):.2f}")
 
     return model
 
 
+class SlidingPredictor(nn.Module):
+    def __init__(self, sliding_model, d_model, out_dim):
+        super(SlidingPredictor, self).__init__()
+        # self.conv = nn.LazyConv1d(base_model.d_model, conv_kernel)
+        self.sliding_net1 = sliding_model(
+            d_model=d_model,
+            kernel=32,
+            stride=1,
+            out_dim=1,
+            num_heads=4,
+            dropout=0.2,
+        )  # (batch, 32, 1)
+
+        # self.conv1 = nn.Conv1d(in_channels=8, out_channels=4, kernel_size=8, stride=2)  # (batch, 4, 14)
+        # self.avg_pool1 = nn.AvgPool1d(2) # (batch, 4, 8)
+
+        self.linear = nn.Linear(32, 16)  # (batch, 1, 16)
+        self.out = nn.Linear(16, out_dim)  # (batch, 1, out_dim)
+
+    def forward(self, x):
+        x = self.sliding_net1(x)
+        x = x.transpose(2, 1)
+        x = nn.functional.relu(x)
+        x = self.linear(x)
+        x = nn.functional.relu(x)
+        x = self.out(x)
+        return x
+
+
+class LSTMBaseline(nn.Module):
+    def __init__(self, embed_dim, out_dim):
+        super(LSTMBaseline, self).__init__()
+        self.lstm1 = nn.LSTM(embed_dim, 50, batch_first=True)
+        self.lstm2 = nn.LSTM(50, 64, batch_first=True)
+        self.linear1 = nn.Linear(64, 32)
+        self.linear2 = nn.Linear(32, 16)
+        self.out = nn.Linear(16, out_dim)
+
+    def forward(self, x):
+        x, _ = self.lstm1(x)
+        _, (x, _) = self.lstm2(x)
+        x = self.linear1(x)
+        x = nn.functional.relu(x)
+        x = self.linear2(x)
+        x = nn.functional.relu(x)
+        x = self.out(x)
+        return x
+
+
 def app():
-    config = PollutionConfig(device=DEVICE)
-    x_train, y_train = config.preprocess_dataset("data/pollution/train.csv")
-    # config = StockConfig(device=DEVICE)
-    # x_train, y_train = config.preprocess_dataset("data/msft/msft.csv")
+    # config = PollutionConfig(device=DEVICE)
+    # x_train, y_train = config.preprocess_dataset("data/pollution/train.csv")
+    config = StockConfig(device=DEVICE, horizon=1)
+    x_train, y_train = config.preprocess_dataset("data/stock/tesla.csv", '%M/%d/%Y')
 
     print(x_train.shape, y_train.shape)
     print("Training ...")
 
-    sliding_transformer = SlidingTransformer(**config.model_params).to(DEVICE)
-    transformer_model = PollutionPredictor(sliding_transformer, config.horizon).to(DEVICE)
-    train(model=transformer_model, x_train=x_train, y_train=y_train, epochs=10)
+    sliding_model = SlidingAttention
+    # sliding_model = SlidingTransformer
+    model = SlidingPredictor(sliding_model, len(config.in_features), config.horizon).to(DEVICE)
+    # model = LSTMBaseline(len(config.in_features), config.horizon).to(DEVICE)
+    train(model=model, x_train=x_train, y_train=y_train, epochs=10, batch_size=32, compute_increments=False)
 
 
 if __name__ == '__main__':

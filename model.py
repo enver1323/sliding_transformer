@@ -28,27 +28,30 @@ class SlidingAttention(nn.Module):
 
         self.accum_module = nn.MultiheadAttention(
             embed_dim=out_dim,
-            num_heads=num_heads,
+            num_heads=1,
             dropout=dropout,
             batch_first=True
         )
 
-    def forward(self, path):
+    def forward(self, path, is_inverse=True):
         seq_len = path.size(-2)
-        slices_num = (seq_len - self.kernel) // self.stride
+        slices_num = (seq_len - self.kernel) // self.stride + 1
 
-        x = torch.stack([path[i * self.stride:i * self.stride + self.kernel, :] for i in range(slices_num)])
+        slices_range = range(slices_num - 1, -1, -1) if is_inverse else range(slices_num)
 
-        x, _ = self.sliding_module(x, x, x)
+        cum_res = None
 
-        x = self.linear_module(x)
-        x = nn.functional.relu(x)
+        for i in slices_range:
+            x = path[:, i * self.stride:i * self.stride + self.kernel:, ]
+            x, _ = self.sliding_module(x, x, x)
+            x = self.linear_module(x)
+            x = nn.functional.relu(x)
+            if i == slices_range[0]:
+                cum_res = x
+            else:
+                cum_res, _ = self.accum_module(x, cum_res, cum_res)
 
-        cum_att = x[0]
-        for i in range(1, x.size(0)):
-            cum_att, _ = self.accum_module(x[i], cum_att, cum_att)
-
-        return cum_att
+        return cum_res
 
 
 class SlidingTransformer(SlidingAttention):
@@ -62,6 +65,7 @@ class SlidingTransformer(SlidingAttention):
         dropout: float = 0.1,
     ):
         super(SlidingTransformer, self).__init__(d_model, kernel, stride, num_heads, out_dim, dropout)
+        self.d_model = d_model
         self.sliding_module = nn.Transformer(
             d_model=d_model,
             nhead=num_heads,
@@ -72,7 +76,7 @@ class SlidingTransformer(SlidingAttention):
 
         self.accum_module = nn.Transformer(
             d_model=out_dim,
-            nhead=num_heads,
+            nhead=1,
             dim_feedforward=4 * out_dim,
             dropout=dropout,
             batch_first=True
@@ -80,32 +84,20 @@ class SlidingTransformer(SlidingAttention):
 
     def forward(self, path, is_inverse: bool = True):
         seq_len = path.size(-2)
-        slices_num = (seq_len - self.kernel) // self.stride
+        slices_num = (seq_len - self.kernel) // self.stride + 1
 
-        x = torch.stack([path[i * self.stride:i * self.stride + self.kernel, :] for i in range(slices_num - 1, -1, -1)])
+        slices_range = range(slices_num - 1, -1, -1) if is_inverse else range(slices_num)
 
-        x = self.sliding_module(x, x)
+        cum_res = None
 
-        x = self.linear_module(x)
-        x = nn.functional.relu(x)
-
-        cum_res = x[0]
-        for i in range(1, x.size(0)):
-            cum_res = self.accum_module(x[i], cum_res)
+        for i in slices_range:
+            x = path[:, i * self.stride:i * self.stride + self.kernel:, ]
+            x = self.sliding_module(x, x)
+            x = self.linear_module(x)
+            x = nn.functional.relu(x)
+            if i == slices_range[0]:
+                cum_res = x
+            else:
+                cum_res = self.accum_module(x, cum_res)
 
         return cum_res
-
-
-class PollutionPredictor(nn.Module):
-    def __init__(self, base_model, out_dim):
-        super(PollutionPredictor, self).__init__()
-        self.base_model = base_model
-        self.out = nn.LazyLinear(out_dim)
-
-    def forward(self, inputs):
-        x = self.base_model(inputs)
-        x = nn.functional.relu(x)
-        x = x.reshape(-1)
-        x = self.out(x)
-        x = x.reshape(-1, 1)
-        return x
