@@ -11,25 +11,11 @@ class Config(ABC):
     Generic configuration for dataset
     """
 
-    def __init__(self, in_features, out_features, kernel, lookback_window, horizon, model_params=None,
-                 device=torch.device('cpu')):
+    def __init__(self, in_features, out_features, lookback_window, horizon, device=torch.device('cpu')):
         self.in_features = in_features
         self.out_features = out_features
-        self.kernel = kernel
         self.lookback_window = lookback_window
         self.horizon = horizon
-        if model_params is None:
-            self.model_params = {
-                'd_model': len(self.in_features),
-                'kernel': kernel,
-                'stride': kernel - 1,
-                'out_dim': 8,
-                'num_heads': 2,
-                'dropout': 0.2,
-                **(model_params or {})
-            }
-        else:
-            self.model_params = model_params
         self.device = device
 
     @abstractmethod
@@ -68,7 +54,6 @@ class PollutionConfig(Config):
                 'dew', 'temp', 'press', 'wnd_dir', 'wnd_spd', 'snow', 'rain', 'pollution'
             ],
             out_features=['pollution'],
-            kernel=24,
             lookback_window=lookback_window,
             horizon=horizon,
             device=device,
@@ -97,16 +82,6 @@ class StockConfig(Config):
         super().__init__(
             in_features=in_features,
             out_features=['Close'],
-            kernel=kernel,
-            model_params={
-                'd_model': len(self.in_features),
-                'kernel': kernel,
-                'stride': 1,
-                'out_dim': 1,
-                'num_heads': 4,
-                'dropout': 0.2,
-                **({})
-            },
             lookback_window=lookback_window,
             horizon=horizon,
             device=device,
@@ -127,11 +102,10 @@ class ETTConfig(Config):
     ETT dataset configuration
     """
 
-    def __init__(self, lookback_window=27, horizon=2, device=torch.device('cpu')):
+    def __init__(self, lookback_window=32, horizon=2, device=torch.device('cpu')):
         super().__init__(
-            in_features=['HUFL', 'HULL', 'MUFL', 'MULL', 'LUFL', 'LULL'],
+            in_features=['HUFL', 'HULL', 'MUFL', 'MULL', 'LUFL', 'LULL', 'OT'],
             out_features=['OT'],
-            kernel=7,
             lookback_window=lookback_window,
             horizon=horizon,
             device=device,
