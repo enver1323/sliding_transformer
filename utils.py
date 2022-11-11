@@ -5,14 +5,7 @@ from sklearn.preprocessing import MinMaxScaler
 
 
 def compute_path_increments(inputs) -> torch.Tensor:
-    # path_increments = torch.empty((inputs.size(-2) - 1, inputs.size(-1)), dtype=inputs.dtype, device=inputs.device)#
-    #
-    # for i in range(path_increments.size(-2)):
-    #     path_increments[i] = inputs[i + 1] - inputs[i]
-    #
-    path_increments = inputs[:, 1:, :] - inputs[:, :-1, :]
-    
-    return path_increments
+    return inputs[:, 1:, :] - inputs[:, :-1, :]
 
 
 def scale_df(input_df, scalable_params):

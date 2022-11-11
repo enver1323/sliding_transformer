@@ -77,8 +77,8 @@ class PollutionConfig(Config):
 
 class StockConfig(Config):
     def __init__(self, lookback_window=64, horizon=2, device=torch.device('cpu')):
-        in_features = ['Open', 'High', 'Low', 'Close'],
-        kernel = 32,
+        in_features = ['Open', 'High', 'Low', 'Close']
+
         super().__init__(
             in_features=in_features,
             out_features=['Close'],
@@ -92,7 +92,7 @@ class StockConfig(Config):
         input_df = pd.read_csv(path)
 
         print("Data preprocessing ...")
-        encode_date_df(input_df, 'Date', date_format='%Y.%m.%d %H:%M:%S')
+        encode_date_df(input_df, 'Date', date_format)
 
         return self.split_dataset(input_df)
 
@@ -102,7 +102,7 @@ class ETTConfig(Config):
     ETT dataset configuration
     """
 
-    def __init__(self, lookback_window=32, horizon=2, device=torch.device('cpu')):
+    def __init__(self, lookback_window=64, horizon=2, device=torch.device('cpu')):
         super().__init__(
             in_features=['HUFL', 'HULL', 'MUFL', 'MULL', 'LUFL', 'LULL', 'OT'],
             out_features=['OT'],
