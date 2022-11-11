@@ -66,22 +66,52 @@ class SlidingPredictor(nn.Module):
             d_model=d_model,
             kernel=32,
             stride=1,
-            out_dim=1,
+            out_dim=64,
             num_heads=4,
             dropout=0.2,
-        )  # (batch, 32, 1)
+        )  # (batch, 32, 8)
 
-        # self.conv1 = nn.Conv1d(in_channels=8, out_channels=4, kernel_size=8, stride=2)  # (batch, 4, 14)
-        # self.avg_pool1 = nn.AvgPool1d(2) # (batch, 4, 8)
+        # self.conv1 = nn.Conv1d(in_channels=16, out_channels=16, kernel_size=8, stride=2)  # (batch, 16, 13)
+        # self.avg_pool1 = nn.MaxPool1d(2)  # (batch, 16, 6)
+        # self.conv2 = nn.Conv1d(in_channels=16, out_channels=32, kernel_size=4, stride=2)  # (batch, 32, 2)
+        # self.avg_pool2 = nn.MaxPool1d(2)  # (batch, 32, 1)
 
-        self.linear = nn.Linear(32, 16)  # (batch, 1, 16)
+        self.sliding_net2 = sliding_model(
+            d_model=64,
+            kernel=16,
+            stride=1,
+            num_heads=4,
+            dropout=0.1
+        )
+
+        self.linear1 = nn.Linear(16, 1)  # (batch, 1, 16)
+        self.linear2 = nn.Linear(64, 32)
+        self.linear3 = nn.Linear(32, 16)
         self.out = nn.Linear(16, out_dim)  # (batch, 1, out_dim)
 
     def forward(self, x):
         x = self.sliding_net1(x)
+
+        # x = x.transpose(2, 1)
+        # x = self.conv1(x)
+        # x = self.avg_pool1(x)
+        # x = nn.functional.relu(x)
+        # x = self.conv2(x)
+        # x = self.avg_pool2(x)
+        # x = nn.functional.relu(x)
+        # x = x.transpose(2, 1)
+
+        x = self.sliding_net2(x)
         x = x.transpose(2, 1)
+
+        x = self.linear1(x)
         x = nn.functional.relu(x)
-        x = self.linear(x)
+        x = x.transpose(2, 1)
+
+
+        x = self.linear2(x)
+        x = nn.functional.relu(x)
+        x = self.linear3(x)
         x = nn.functional.relu(x)
         x = self.out(x)
         return x
@@ -120,7 +150,14 @@ def app():
     # sliding_model = SlidingTransformer
     model = SlidingPredictor(sliding_model, len(config.in_features), config.horizon).to(DEVICE)
     # model = LSTMBaseline(len(config.in_features), config.horizon).to(DEVICE)
-    train(model=model, x_train=x_train, y_train=y_train, epochs=10, batch_size=32, compute_increments=False)
+    train(
+        model=model,
+        x_train=x_train,
+        y_train=y_train,
+        epochs=10,
+        batch_size=32,
+        compute_increments=False
+    )
 
 
 if __name__ == '__main__':
