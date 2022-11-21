@@ -9,6 +9,10 @@
             "type": "python",
             "name": "model",
             "arguments": ["model.py"],
+        },{
+            "type": "python",
+            "name": "InformerTrain",
+            "arguments": ["informer_train.py"],
         }
     ]
 }

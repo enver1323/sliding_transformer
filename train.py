@@ -4,7 +4,7 @@ from tqdm import tqdm
 
 from config import StockConfig, ETTConfig
 from model import SlidingTransformer, SlidingAttention
-from utils import compute_path_increments
+from utils.preprocessing import compute_path_increments
 
 DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
